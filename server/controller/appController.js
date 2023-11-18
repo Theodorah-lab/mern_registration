@@ -60,68 +60,101 @@ async function createResetSession(req, res) {
 async function register(req, res) {
     try {
         const { username, password, email, profile } = req.body;
-        const existUser = await userSchema.findOne({ username })
+        const existUser = await userSchema.findOne({ username });
         if (!existUser) {
-            const salt = await bcrypt.genSalt(10)
-            const encryptPWD = await bcrypt.hash(password, salt)
+            const salt = await bcrypt.genSalt(10);
+            const encryptPWD = await bcrypt.hash(password, salt);
             const user = new userSchema({
                 username,
                 password: encryptPWD,
                 email,
-            })
-            const data = await user.save()
-            return res.status(201).send({ message: "user registered", data: data })
+            });
+            const data = await user.save();
+            return res.status(201).send({ message: "User registered successfully", userId: data._id });
         }
-        return res
-            .status(200).send({ message: "user already exist" })
+        return res.status(200).send({ message: "User already exists" });
     } catch (error) {
-        return res
-            .status(500).send(error)
+        return res.status(500).send({ error: "Internal Server Error" });
     }
 }
-async function login(req, res) {
-    const { username, password } = req.body
+const login = async (req, res) => {
+    const { username, password } = req.body;
+
     try {
-        userSchema.findOne({ username }).then((user) => {
-            bcrypt.compare(password, user.password).then(passwordCheck => {
-                if (!passwordCheck) return res.status(404).send({ err: "does not have Password" })
-                //create jwt auth
-                const token = jwt.sign({
-                    userId: user._id,
-                    username: user.username,
-                }, process.env.JWT_SECRET, { expiresIn: '24h' })
-                return res.status(200).send({
-                    message: "login successfully",
-                    username: user.username,
-                    token
-                })
-            }).catch(err => {
-                return res.status(404).send({ err: "Password not match" })
-            })
-        }).catch(err => {
-            return res.status(404).send({ err: "user does not exist" })
-        })
+        const user = await userSchema.findOne({ username });
+
+        if (!user) {
+            return res.status(404).send({ err: "User does not exist" });
+        }
+
+        const passwordCheck = await bcrypt.compare(password, user.password);
+
+        if (!passwordCheck) {
+            return res.status(404).send({ err: "Password not match" });
+        }
+
+        // Create jwt auth
+        const token = jwt.sign({
+            userId: user._id,
+            username: user.username,
+        }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+        return res.status(200).send({
+            message: "Login successfully",
+            username: user.username,
+            token,
+        });
     } catch (error) {
-        return res.status(500).send({ error: "Internal Server Error" })
+        console.error(error);
+        return res.status(500).send({ error: "Internal Server Error" });
     }
-}
+};
+
 
 
 /**----PUT METHOD----- */
 
 async function updateuser(req, res) {
     try {
-        const { userId } = req.user
-        if (userId) {
-            const body = req.body;
-            await userSchema.updateOne({ _id: userId }, body);
-            return res.status(201).send({ msg: "Record Updated...!" });
+        const { userId } = req.user;
+
+        if (!userId) {
+            return res.status(404).send({ error: "ID not found" });
         }
-        return res.status(404).send({ error: "ID not found" });
+
+        const { firstName, lastName, email, mobile, address, profile } = req.body;
+
+        // Perform validation, ensuring required fields are present
+        if (!firstName || !lastName || !email || !mobile || !address || !profile) {
+            return res.status(400).send({ error: "Missing required fields" });
+        }
+
+        // Update the user data
+        const updatedUser = await userSchema.findOneAndUpdate(
+            { _id: userId },
+            { firstName, lastName, email, mobile, address, profile },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).send({ error: "User not found" });
+        }
+
+        // Log the updated user for debugging
+        console.log("Updated User:", updatedUser);
+
+        return res.status(200).send({ msg: "Record Updated", user: updatedUser });
     } catch (error) {
+        console.error(error);
+
+        // Log the specific error for debugging
+        console.error("Error during updateuser:", error);
+
         return res.status(500).send({ error: "Internal Server Error" });
     }
 }
+
+
 async function resetpassword(req, res) {
     try {
         if (!req.app.locals.resetSession) return res.status(440).send({ error: "Session expired!" });
@@ -144,4 +177,4 @@ async function resetpassword(req, res) {
     }
 }
 
-module.exports = { getUser, generateOTP, verifyOTP, createResetSession, register, login, updateuser, resetpassword, verifyUser }
+module.exports = { getUser, generateOTP, verifyOTP, createResetSession, register, login, updateuser, resetpassword, verifyUser };

@@ -1,16 +1,21 @@
-const mongoose = require('mongoose')
-const { MongoMemoryServer } = require('mongodb-memory-server')
-require('dotenv').config()
+const mongoose = require('mongoose');
+require('dotenv').config();
+
 async function connect() {
-    const mongodb = new MongoMemoryServer()
-    await mongodb.start()
-    const mongo_URI = mongodb.getUri()
-    // const db = await mongoose.connect(mongo_URI)
-    const db = process.env.MONGODB_URI
-    console.log("mongodb connected")
-    return db
+    const mongo_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/test-database';
 
+    try {
+        const db = await mongoose.connect(mongo_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        });
 
+        console.log("MongoDB connected");
+        return db;
+    } catch (error) {
+        console.error("Error connecting to MongoDB:", error);
+        throw error;
+    }
 }
 
-module.exports = connect
+module.exports = connect;

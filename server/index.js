@@ -9,7 +9,7 @@ const port = process.env.PORT || 4000
 
 app.use(express.json())
 app.use(cors()) 
-app.use('/api/v1', router)
+app.use('/api', router)
 app.use(morgan('tiny'));
 app.disable('x-powered-by')
 
@@ -28,3 +28,7 @@ connection().then(() => {
     }
 })
 
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Something went wrong!');
+});
